@@ -101,7 +101,7 @@ export const handleForgotPassword = async(req:Request, res:Response, next:NextFu
 
         if(!user) {
             throw new ValidationError(
-                `${userType} not found!`
+                `${userType.charAt(0).toUpperCase()}${userType.slice(1)} not found!`
             )
         };
 
@@ -110,7 +110,7 @@ export const handleForgotPassword = async(req:Request, res:Response, next:NextFu
         await trackOtpRequests(email, next);
 
         // Generate OTO and send Email
-        await sendOtp(email, user.name, "forgot-password-user-mail");
+        await sendOtp(user.name, email, "forgot-password-user-mail");
 
         res.status(200).json({
             message: "OTP sent to email. Please verify your account."
