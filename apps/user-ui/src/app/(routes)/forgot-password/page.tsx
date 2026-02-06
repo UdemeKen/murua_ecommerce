@@ -81,7 +81,7 @@ export default function ForgotPassword() {
     const resetPasswordMutation = useMutation({
         mutationFn: async({ password }: { password: string }) => {
             if (!password) return;
-            const response = await axios.post(`${process.env.NEXT_PUBLIC_SERVER_URI}/api/reset-password-user`, { email: userEmail, newPassword: password});
+            const response = await axios.post(`${process.env.NEXT_PUBLIC_SERVER_URI}/api/reset-password-user`, { email: userEmail, newpassword: password});
             return response.data;
         },
         onSuccess: () => {
@@ -237,7 +237,7 @@ export default function ForgotPassword() {
                         <form onSubmit={handleSubmit(onSubmitPassword)}>
                             <label className='block text-gray-700 mb-1'>New Password</label>
                             <input 
-                                type={"password"}
+                                type="password"
                                 placeholder='Enter new password'
                                 className='w-full p-2 border border-gray-300 outline-0 !rounded mb-1'
                                 {...register("password", {
