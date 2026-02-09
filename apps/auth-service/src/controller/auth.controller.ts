@@ -218,3 +218,20 @@ export const resetUserPassword = async(req:Request, res:Response, next:NextFunct
         return next(error);
     }
 }
+
+
+// Register a new seller
+export const registerSeller = async(req:Request, res:Response, next:NextFunction) => {
+    try {
+        validateRegistrationData(req.body, "seller");
+        const { name, email } = req.body;
+
+        const existingSeller = await prisma.sellers.findUnique({ where: { email }});
+
+        if(existingSeller) {
+            throw new ValidationError("Seller already exist with this email!");
+        }
+    } catch (error) {
+        
+    }
+}
