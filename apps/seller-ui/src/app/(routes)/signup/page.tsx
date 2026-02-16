@@ -1,12 +1,15 @@
 "use client"
+
 import { Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import React, { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form';
 import axios, { AxiosError } from "axios";
 import { useMutation } from '@tanstack/react-query';
 import { countries } from 'apps/seller-ui/src/utils/countries';
+import CreateShop from 'apps/seller-ui/src/shared/modules/auth/create-shop';
+import FlutterwaveLogo from 'apps/seller-ui/src/assets/svgs/flutterwave-logo';
+import { bankCategories } from 'apps/seller-ui/src/utils/banks';
 
 
 export default function Signup() {
@@ -19,7 +22,6 @@ export default function Signup() {
     const [ sellerData, setSellerData ] = useState<FormData | null>(null);
     const [ sellerId, setSellerId ] = useState("");
     const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-    const router = useRouter();
 
     const {
         register,
@@ -42,6 +44,7 @@ export default function Signup() {
 
     const signupMutation = useMutation({
         mutationFn: async(data: FormData) => {
+            
             const response = await axios.post(`${process.env.NEXT_PUBLIC_SERVER_URI}/api/seller-registration`, data)
             return response.data;
         },
@@ -96,6 +99,18 @@ export default function Signup() {
             signupMutation.mutate(sellerData);
         }
     };
+
+    const ConnectPaymentAccount = async() => {
+        try {
+            const response = await axios.post(`${process.env.NEXT_PUBLIC_SERVER_URI}/api/create-Payment-Account-Connect-Link`, {sellerId});
+
+            if (response.data.url) {
+                window.location.href = response.data.url;
+            }
+        } catch (error) {
+            console.log("Payment Connection Error", error);
+        }
+    }
 
   return (
     <div className='w-full flex flex-col items-center pt-10 min-h-screen'>
@@ -204,6 +219,40 @@ export default function Signup() {
                                 </p>
                             )}
 
+                            <label className="block text-gray-700 mb-1">Bank Name *</label>
+                                <select
+                                className="w-full p-2 border border-gray-300 outline-0 rounded-[4px] mb-1"
+                                {...register('account_bank', { required: 'Bank is required' })}
+                                >
+                                <option value="">Select your bank</option>
+                                {bankCategories.map((bank) => (
+                                    <option key={bank.code} value={bank.code}>
+                                    {bank.name}
+                                    </option>
+                                ))}
+                                </select>
+                                {errors.account_bank && (
+                                    <p className="text-red-500 text-sm mt-1">{String(errors.account_bank.message)}</p>
+                                )}
+
+                                <label className="block text-gray-700 mb-1">Account Number *</label>
+                                <input
+                                type="text"
+                                placeholder="e.g. 0690000037"
+                                maxLength={10}
+                                className="w-full p-2 border border-gray-300 outline-0 rounded-[4px] mb-1"
+                                {...register('account_number', {
+                                    required: 'Account number is required',
+                                    pattern: {
+                                    value: /^\d{10}$/,
+                                    message: 'Account number should be 10 digits',
+                                    },
+                                })}
+                                />
+                            {errors.account_number && (
+                                <p className="text-red-500 text-sm mt-1">{String(errors.account_number.message)}</p>
+                            )}
+
                             <label className='block text-gray-700 mb-1'>Password</label>
                             <div className='relative'>
                                 <input 
@@ -302,6 +351,21 @@ export default function Signup() {
                         </div>
                     )}
                 </>
+            )}
+            {activeStep === 2 && (
+                <CreateShop sellerId={sellerId} setActiveStep={setActiveStep}/>
+            )}
+            {activeStep === 3 && (
+                <div className='text-center'>
+                    <h3 className='text-2xl font-semibold'>Withdraw Method</h3>
+                    <br />
+                    <button
+                        className='w-full m-auto flex items-center justify-center gap-3 text-lg bg-[#334155] text-white py-2 rounded-lg'
+                        onClick={ConnectPaymentAccount}
+                    >
+                        Connect Payment Account <FlutterwaveLogo />
+                    </button>
+                </div>
             )}
         </div>
     </div>

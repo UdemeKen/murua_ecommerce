@@ -5,7 +5,9 @@ import { AuthError, ValidationError } from "@packages/error-handler";
 import bcrypt from "bcryptjs";
 import jwt, { JsonWebTokenError } from "jsonwebtoken";
 import { setCookie } from "../utils/cookies/setCookie";
-// import { name } from "ejs";
+const Flutterwave = require("flutterwave-node-v3");
+
+const flw = new Flutterwave(process.env.FLW_PUBLIC_KEY, process.env.FLW_SECRET_KEY);
 
 
 // Register a new user
@@ -247,9 +249,9 @@ export const registerSeller = async(req:Request, res:Response, next:NextFunction
 // Verify Seller with OTP
 export const verifySeller = async(req:Request, res:Response, next:NextFunction) => {
     try {
-        const { email, otp, password, name, phone_number, country } = req.body;
+        const { email, otp, password, name, phone_number, country, account_bank, account_number } = req.body;
 
-        if(!email || !otp || !password || !name || !phone_number || !country) {
+        if(!email || !otp || !password || !name || !phone_number || !country || !account_bank || !account_number) {
             return next(new ValidationError(
                 "All fields are required!"
             ));
@@ -273,6 +275,8 @@ export const verifySeller = async(req:Request, res:Response, next:NextFunction) 
                 password: hashedPassword,
                 country,
                 phone_number,
+                account_bank,
+                account_number,
             },
         });
 
@@ -321,3 +325,139 @@ export const createShop = async(req:Request, res:Response, next:NextFunction) =>
 }
 
 // create stripe connect account link
+export const createPaymentAccountConnectLink = async(req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { sellerId } = req.body;
+
+        if(!sellerId) return next(new ValidationError("Seller ID is required!"));
+
+        const seller = await prisma.sellers.findUnique({
+            where: {
+                id: sellerId,
+            },
+        });
+
+        if(!seller) {
+            return next(new ValidationError("Seller is not available with this id!"))
+        }
+
+        if (seller.flutterwaveId) {
+            return res.status(400).json({
+                status: "error",
+                message: "Seller already onboarded",
+            });
+        }
+
+        if (!seller.account_bank || !seller.account_number) {
+            return res.status(400).json({
+                status: "error",
+                message: "Seller bank details incomplete",
+            });
+        }
+
+        const subaccount = await flw.Subaccount.create({
+            account_bank: seller.account_bank,
+            account_number: seller.account_number,
+            business_name: seller.name,
+            business_email: seller.email,
+            business_mobile: seller.phone_number,
+            country: "NG",
+            split_type: "percentage",
+            split_value: 0.2,
+        });
+
+        if (subaccount.status !== "success") {
+            return res.status(400).json({
+                status: "error",
+                message: subaccount.message,
+            });
+        }
+
+        if (!subaccount.data) {
+            return res.status(400).json({
+                status: "error",
+                message: "Failed to create subaccount",
+            });
+        }
+
+        await prisma.sellers.update({
+            where: {
+                id: sellerId,
+            },
+            data: {
+                flutterwaveId: subaccount.data.subaccount_id,
+            },
+        });
+
+        return res.status(201).json({
+            status: "success",
+            message: "Subaccount created",
+            data: {
+                id: subaccount.data.id,
+                subaccount_id: subaccount.data.subaccount_id,
+                account_number: subaccount.data.account_number,
+                account_bank: subaccount.data.account_bank,
+                bank_name: subaccount.data.bank_name,
+                split_type: subaccount.data.split_type,
+                split_value: subaccount.data.split_value,
+                created_at: subaccount.data.created_at,
+            },
+        });
+    } catch (error) {
+        return next(error)
+    }
+}
+
+// login seller
+export const loginSeller = async(req:Request, res:Response, next:NextFunction) => {
+    try {
+        const { email, password } = req.body;
+
+        if(!email || !password) {
+            return next(new ValidationError("Email and password are required!"));
+        }
+
+            const seller = await prisma.sellers.findUnique({ where: { email }});
+            if(!seller) return next(new ValidationError("Invalid email or password!"));
+
+            // Verify password
+            const isMatch = await bcrypt.compare(password, seller?.password!);
+            if(!isMatch) return next(new ValidationError("Invalid email or password!"));
+
+        // Generate access and refresh token
+        const accessToken = jwt.sign(
+            { id: seller.id, role: "seller" },
+            process.env.ACCESS_TOKEN_SECRET as string,
+            { expiresIn: "15m"}
+        );
+        const refreshToken = jwt.sign(
+            { id: seller.id, role: "seller" },
+            process.env.REFRESH_TOKEN_SECRET as string,
+            { expiresIn: "7d" }
+        ); 
+
+        // Store refresh token and access token
+        setCookie(res, "seller-refresh-token", refreshToken);
+        setCookie(res, "seller-access-token", accessToken);
+
+        res.status(200).json({
+            message: "Login Successful!",
+            seller: { id: seller.id, email: seller.email, name: seller.name },
+        });
+    } catch (error) {
+        return next(error);
+    }
+}
+
+// get logged in seller
+export const getSeller = async(req:any, res:Response, next:NextFunction) => {
+    try {
+        const seller = req.seller;
+        res.status(201).json({
+            success: true,
+            seller,
+        });
+    } catch (error) {
+        return next(error);
+    }
+}

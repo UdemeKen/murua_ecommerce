@@ -8,9 +8,9 @@ import prisma from "@packages/libs/prisma";
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const validateRegistrationData = (data: any, userType: "user" | "seller") => {
-    const { name, email, password, phone_number, country } = data;
+    const { name, email, password, phone_number, country, account_bank, account_number } = data;
 
-    if (!name || !email || !password || (userType === "seller" && (!phone_number || !country))) {
+    if (!name || !email || !password || (userType === "seller" && (!phone_number || !country || !account_bank || !account_number))) {
         throw new ValidationError(`Missing required fields!`);
     }
 
