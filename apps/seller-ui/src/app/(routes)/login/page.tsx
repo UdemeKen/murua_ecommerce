@@ -26,7 +26,7 @@ export default function Login() {
 
     const loginMutation = useMutation({
         mutationFn: async(data: FormData) => {
-            const response = await axios.post(`${process.env.NEXT_PUBLIC_SERVER_URI}/api/login-user`, 
+            const response = await axios.post(`${process.env.NEXT_PUBLIC_SERVER_URI}/api/login-seller`, 
                 data,
                 { withCredentials: true }
             );
@@ -34,7 +34,7 @@ export default function Login() {
         },
         onSuccess: (data) => {
             setServerError(null);
-            router.push("/");
+            router.push("/dashboard");
         },
         onError: (error: AxiosError) => {
             const errorMessage = (error.response?.data as { message?: string })?.message || "Invalid credentials!";

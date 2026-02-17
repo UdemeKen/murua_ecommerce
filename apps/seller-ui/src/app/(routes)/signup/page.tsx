@@ -104,8 +104,10 @@ export default function Signup() {
         try {
             const response = await axios.post(`${process.env.NEXT_PUBLIC_SERVER_URI}/api/create-Payment-Account-Connect-Link`, {sellerId});
 
-            if (response.data.url) {
-                window.location.href = response.data.url;
+            if (response.data.status === "success") {
+                window.location.href = "/success?connected=true";
+            }else {
+                console.error("Subaccount creation failed:", response.data.message);
             }
         } catch (error) {
             console.log("Payment Connection Error", error);

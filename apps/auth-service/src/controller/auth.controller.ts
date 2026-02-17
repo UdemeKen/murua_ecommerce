@@ -92,6 +92,9 @@ export const loginUser = async(req:Request, res:Response, next:NextFunction) => 
             );
         }
 
+        res.clearCookie("seller-access_token");
+        res.clearCookie("seller-refresh_token");
+
         // Generate access and refresh token
         const accessToken = jwt.sign(
             { id: user.id, role: "user"},
@@ -122,10 +125,10 @@ export const loginUser = async(req:Request, res:Response, next:NextFunction) => 
     }
 }
 
-// Refresh token user
-export const refreshToken = async(req: Request, res: Response, next: NextFunction) => {
+// Refresh token
+export const refreshToken = async(req: any, res: Response, next: NextFunction) => {
     try {
-        const refreshToken = req.cookies.refresh_token;
+        const refreshToken = req.cookies["refresh_token"] || req.cookies["seller-refresh-token"] || req.headers.authorization?.split(" ")[1];
 
         if (!refreshToken) {
             return new ValidationError("Unauthorized! No refresh token.")
@@ -137,17 +140,27 @@ export const refreshToken = async(req: Request, res: Response, next: NextFunctio
             return new JsonWebTokenError("Forbidden! Invalid refresh token.");
         }
 
-        // let account;
-        // if (decoded.role === "user")
-        const user = await prisma.users.findUnique({ where: { id: decoded.id }});
+        let account;
+        if (decoded.role === "user"){
+            const account = await prisma.users.findUnique({ where: { id: decoded.id }});
+        } else if(decoded.role === "seller") {
+            const account = await prisma.sellers.findUnique({ where: { id: decoded.id }, include: { shop: true }});
+        }
 
-        if (!user) {
+        if (!account) {
             return new AuthError("Forbidden! User/Seller not found");
         }
 
         const newAccessToken = jwt.sign({ id: decoded.id, role: decoded.role }, process.env.ACCESS_TOKEN_SECRET as string, { expiresIn: "15m" });
 
-        setCookie(res, "access_token", newAccessToken);
+        if(decoded.role === "user") {
+            setCookie(res, "access_token", newAccessToken);
+        } else if(decoded.role === "seller") {
+            setCookie(res, "seller-access-token", newAccessToken);
+        }
+
+        req.role = decoded.role;
+
         return res.status(200).json({ success: true });
     } catch (error) {
         return next(error);
@@ -400,7 +413,7 @@ export const createPaymentAccountConnectLink = async(req: Request, res: Response
                 bank_name: subaccount.data.bank_name,
                 split_type: subaccount.data.split_type,
                 split_value: subaccount.data.split_value,
-                created_at: subaccount.data.created_at,
+                created_at: subaccount.data.created_at
             },
         });
     } catch (error) {
@@ -423,6 +436,9 @@ export const loginSeller = async(req:Request, res:Response, next:NextFunction) =
             // Verify password
             const isMatch = await bcrypt.compare(password, seller?.password!);
             if(!isMatch) return next(new ValidationError("Invalid email or password!"));
+
+            res.clearCookie("access_token");
+            res.clearCookie("refresh_token");
 
         // Generate access and refresh token
         const accessToken = jwt.sign(
