@@ -2,7 +2,6 @@ import React from 'react'
 import { Controller, useFieldArray } from 'react-hook-form'
 import Input from '../input'
 import { PlusCircle, Trash2 } from 'lucide-react'
-import { name } from 'ejs'
 
 export default function CustomSpecifications({ control, errors }: any) {
 const { fields, append, remove } = useFieldArray({

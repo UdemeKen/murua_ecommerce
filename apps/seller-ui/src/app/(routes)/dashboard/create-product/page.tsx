@@ -1,12 +1,15 @@
 'use client'
 
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import ImagePlaceHolder from 'apps/seller-ui/src/shared/components/image-placeholder';
 import { ChevronRight } from 'lucide-react';
 import ColorSelector from 'packages/components/color-selector';
 import Input from 'packages/components/input';
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import CustomSpecifications from 'packages/components/custom-specifications';
+import CustomProperties from 'packages/components/custom-properties';
+import { useQuery } from '@tanstack/react-query';
+import axiosInstance from 'apps/seller-ui/src/utils/axiosInstance';
 
 
 export default function Page() {
@@ -15,6 +18,30 @@ export default function Page() {
   const [isChanged, setIsChanged] = useState(false);
   const [images, setImages] = useState<(File | null)[]>([null]);
   const [loading, setLoading] = useState(false);
+
+  const {data, isLoading, isError} = useQuery({
+    queryKey: ["categories"],
+    queryFn: async() => {
+      try {
+        const res = await axiosInstance.get("/product/api/get-categories");
+        return res.data;
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    staleTime: 1000 * 60 * 5,
+    retry: 2,
+  });
+
+  const categories = data?.categories || [];
+  const subCategoriesData = data?.subCategories || [];
+
+  const selectedCategory = watch("category");
+  const regularPrice = watch("regular_price");
+
+  const subCategories = useMemo(() => {
+    return selectedCategory ? subCategoriesData[selectedCategory] || [] : [];
+  }, [selectedCategory, subCategoriesData]);  
 
   const onSubmit = (data:any) => {
     console.log(data);
@@ -206,6 +233,107 @@ export default function Page() {
             <div className='mt-2'>
                 <CustomSpecifications control={control} errors={errors}/>
             </div>
+
+            <div className='mt-2'>
+                <CustomProperties control={control} errors={errors}/>
+            </div>
+
+            <div className='mt-2'>
+                <label className='block font-semibold text-gray-300 mb-1'>
+                  Cash On Delivery *
+                </label>
+                <select
+                  {...register("cash_on_delivery", {
+                    required: "Cash on Delivery is required",
+                  })}
+                  defaultValue={"yes"}
+                  className='w-full border outline-none border-gray-700 bg-transparent p-2 rounded-md text-white'
+                >
+                  <option value={"yes"} className='bg-black'>
+                    Yes
+                  </option>
+                  <option value={"no"} className='bg-black'>
+                    No
+                  </option>
+                </select>
+                {errors.cash_on_delivery && (
+                  <p className='text-red-500 text-xs mt-1'>{errors.cash_on_delivery.message as string}</p>
+                )}
+            </div>
+            </div>
+            <div className='w-2/4'>
+                <label className='block font-semibold text-gray-300 mb-1'>
+                  Category *
+                </label>
+                {isLoading ? (
+                  <p className='text-gray-400'> Loading Categories</p>
+                ): isError ? (
+                  <p className='text-red-500'>Failed to load categories</p>
+                ): (
+                  <Controller 
+                    name='category'
+                    control={control}
+                    rules={{ required: "Category is required" }}
+                    render={({ field }) => (
+                      <select
+                        {...field}
+                        className='w-full border outline-none border-gray-700 bg-transparent p-2 rounded-md text-white'
+                      >
+                        <option value={""} className='bg-black'>
+                          Select Category
+                        </option>
+                        {categories?.map((category: string) => (
+                          <option
+                            value={category}
+                            key={category}
+                            className='bg-black'
+                          >
+                            {category}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  />
+                )}
+                {errors.category && (
+                  <p className='text-red-500 text-sm mt-1'>{errors.category.message as string}</p>
+                )}
+
+                <div className='mt-2'>
+                  <label className='block font-semibold text-gray-300 mb-1'>SubCategory *</label>
+                  <Controller 
+                    name='subCategory'
+                    control={control}
+                    rules={{ required: "Subcategory is required" }}
+                    render={({ field }) => (
+                      <select
+                        {...field}
+                        className='w-full border outline-none border-gray-700 bg-transparent p-2 rounded-md text-white'
+                      >
+                        <option value={""} className='bg-black'>
+                          Select Subcategory
+                        </option>
+                        {subCategories?.map((subcategory: string) => (
+                          <option
+                            key={subcategory}
+                            value={subcategory}
+                            className='bg-black'
+                          >
+                            {subcategory}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  />
+
+                  {errors.subcategory && (
+                    <p className='text-red-500 text-sm mt-1'>{errors.subcategory.message as string}</p>
+                  )}
+                </div>
+
+                <div className='mt-2'>
+                  
+                </div>
             </div>
           </div>
       </div>
