@@ -10,12 +10,15 @@ import CustomSpecifications from 'packages/components/custom-specifications';
 import CustomProperties from 'packages/components/custom-properties';
 import { useQuery } from '@tanstack/react-query';
 import axiosInstance from 'apps/seller-ui/src/utils/axiosInstance';
+import RichTextEditor from 'packages/components/rich-text-editor';
+import SizeSelector from 'packages/components/size-selector';
+import Link from 'next/link';
 
 
 export default function Page() {
   const { register, control, watch, setValue, handleSubmit, formState:{ errors }, } = useForm();
   const [openImageModal, setOpenImageModal] = useState(false);
-  const [isChanged, setIsChanged] = useState(false);
+  const [isChanged, setIsChanged] = useState(true);
   const [images, setImages] = useState<(File | null)[]>([null]);
   const [loading, setLoading] = useState(false);
 
@@ -80,6 +83,10 @@ export default function Page() {
     setValue("images", images);
   }
 
+  const handleSaveDraft = () => {
+
+  }
+
   return (
     <form 
       className='w-full mx-auto p-8 shadow-md rounded-lg text-white'
@@ -90,7 +97,7 @@ export default function Page() {
         Create Product
       </h2>
       <div className='flex items-center'>
-        <span className='text-[#80Deea] cursor-pointer'>Dashboard</span>
+        <Link href={"/dashboard"} className='text-[#80Deea] cursor-pointer'>Dashboard</Link>
         <ChevronRight size={20} className='opacity-[.8]'/>
         <span>Create Product</span>
       </div>
@@ -332,11 +339,140 @@ export default function Page() {
                 </div>
 
                 <div className='mt-2'>
-                  
+                  <label className='block font-semibold text-gray-300 mb-1'>
+                    Detailed Description * (Min 100 words)
+                  </label>
+                  <Controller 
+                    name='detailed_description'
+                    control={control}
+                    rules={{
+                      required: "Detailed description is required!",
+                      validate: (value) => {
+                        const wordCount = value?.split(/\s+/).filter((word: string) => word).length;
+                        return (
+                          wordCount >= 100 || "Description must be atleast 100 words!"
+                        );
+                      },
+                    }}
+                    render={({ field }) => (
+                      <RichTextEditor 
+                        value={field.value}
+                        onChange={field.onChange}
+                      />
+                    )}
+                  />
+                  {errors.detailed_description && (
+                    <p className='text-red-500 text-sm mt-1'>{errors.detailed_description.message as string}</p>
+                  )}
+                </div>
+
+                <div className='mt-2'>
+                  <Input 
+                    label='Video URL'
+                    placeholder='https://www.youtube.com/embed/xyz123'
+                    {...register("video_url", {
+                      pattern: {
+                        value: /^https:\/\/(www\.)?youtube\.com\/embed\/[a-zA-Z0-9_-]+$/,
+                        message: "Invalid Youtube embed URL! Use format: https://www.youtube.com",
+                      },
+                    })}
+                  />
+                  {errors.video_url && (
+                    <p className='text-red-500 text-sm mt-1'>{errors.video_url.message as string}</p>
+                  )}
+                </div>
+
+                <div className='mt-2'>
+                  <Input 
+                    label='Regular Price'
+                    placeholder='₦20'
+                    {...register("regular_price", {
+                      valueAsNumber: true,
+                      min: { value: 1, message: "Price must be at least 1" },
+                      validate: (value) => !isNaN(value) || "Only numbers are allowed",
+                    })}
+                  />
+                  {errors.regular_price && (
+                    <p className='text-red-500 text-sm mt-1'>{errors.regular_price.message as string}</p>
+                  )}
+                </div>
+
+                <div className='mt-2'>
+                  <Input 
+                    label='Sale Price *'
+                    placeholder='₦15'
+                    {...register("sale_price", {
+                      required: "Sale Price is required",
+                      valueAsNumber: true,
+                      min: { value: 1, message: "Sale Price must be at least 1" },
+                      validate: (value) => {
+                        if(isNaN(value)) return "Only numbers are allowed";
+                        if(regularPrice && value >= regularPrice) {
+                          return "Sale price must be less than regular Price";
+                        }
+                        return true;
+                      }
+                    })}
+                  />
+                  {errors.sale_price && (
+                    <p className='text-red-500 text-sm mt-1'>{errors.sale_price.message as string}</p>
+                  )}
+                </div>
+
+                <div className='mt-2'>
+                  <Input 
+                    label='Stock *'
+                    placeholder='100'
+                    {...register("stock", {
+                      required: "Stock is required!",
+                      valueAsNumber: true,
+                      min: { value: 1, message: "Stock must be at least 1" },
+                      max: {
+                        value: 1000,
+                        message: "Stock cannot exceed 1,000",
+                      },
+                      validate: (value) => {
+                        if (isNaN(value)) return "Only numbers are allowed!";
+                        if (!Number.isInteger(value)) return "Stock must be a whole number!";
+                        return true;
+                      }
+                    })}
+                  />
+                  {errors.stock && (
+                    <p className='text-red-500 text-sm mt-1'>{errors.stock.message as string}</p>
+                  )}
+                </div>
+
+                <div className='mt-2'>
+                  <SizeSelector control={control} errors={errors} />
+                </div>
+
+                <div className='mt-3'>
+                  <label className='block font-semibold text-gray-300 mb-1'>
+                    Select Discount Codes (optional)
+                  </label>
                 </div>
             </div>
           </div>
       </div>
+      </div>
+      <div className='mt-6 flex justify-end gap-3'>
+                  {isChanged && (
+                    <button
+                      type='button'
+                      onClick={handleSaveDraft}
+                      className='px-4 py-2 bg-gray-700 text-white rounded-md'
+                    >
+                      Save Draft
+                    </button>
+                  )}
+                  <button
+                    type='submit'
+                    className='px-4 py-2 bg-blue-600 text-white rounded-md'
+                    disabled={loading}
+                  >
+                    {loading ? "Creating..." : "Create"}4
+                  </button>
       </div>
     </form>
   )
