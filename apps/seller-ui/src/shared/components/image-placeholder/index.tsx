@@ -3,7 +3,7 @@ import Image from 'next/image';
 import React, { useState } from 'react'
 
 export default function ImagePlaceHolder(
-    { size, small, onImageChange, onRemove, defaultImage = null, index = null, setOpenImageModal} 
+    { size, small, onImageChange, onRemove, defaultImage = null, index = null, setSelectedImage, pictureUploadingLoader, setOpenImageModal, images } 
     : 
     {
         size:string;
@@ -11,6 +11,9 @@ export default function ImagePlaceHolder(
         onImageChange: (file: File | null, index: number) => void;
         onRemove?: (index: number) => void;
         defaultImage?: string | null;
+        pictureUploadingLoader: boolean;
+        setSelectedImage: (e: string) => void;
+        images: any;
         setOpenImageModal: (openImageModal: boolean) => void;
         index?: any;
     }
@@ -38,15 +41,21 @@ export default function ImagePlaceHolder(
         />
         {imagePreview ? (
             <>
-                <button type='button' onClick={() => onRemove?.(index!)}
+                <button 
+                    type='button' 
+                    disabled={pictureUploadingLoader}
+                    onClick={() => onRemove?.(index!)}
                     className='absolute top-3 right-3 p-2 !rounded bg-red-600 shadow-lg'
                     >
                         <X size={16} />
                 </button>
                 <button
+                    disabled={pictureUploadingLoader}
                     className='absolute top-3 right-[70px] p-2 !rounded bg-blue-500 shadow-lg cursor-pointer'
-                    onClick={() => setOpenImageModal(true)}
-                >
+                    onClick={() => { 
+                        setOpenImageModal(true);
+                        setSelectedImage(images[index].file_url);
+                    }}>
                     <WandSparkles size={16}/>
                 </button>
             </>

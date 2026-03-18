@@ -44,7 +44,7 @@ const RichTextEditor = ({value, onChange}: { value: string; onChange: (content: 
                         [{ list: "ordered" }, { list: "bullet" }],
                         [{ indent: "-1" }, { indent: "+1" }],
                         [{ align: [] }],
-                        ["blockqoute", "code-block"],
+                        ["blockquote", "code-block"],
                         ["link", "image", "video"],
                         ["clean"],
                     ],

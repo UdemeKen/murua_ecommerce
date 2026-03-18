@@ -2,7 +2,7 @@
 
 import { Controller, useForm } from 'react-hook-form';
 import ImagePlaceHolder from 'apps/seller-ui/src/shared/components/image-placeholder';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Wand, X } from 'lucide-react';
 import ColorSelector from 'packages/components/color-selector';
 import Input from 'packages/components/input';
 import React, { useMemo, useState } from 'react'
@@ -13,16 +13,26 @@ import axiosInstance from 'apps/seller-ui/src/utils/axiosInstance';
 import RichTextEditor from 'packages/components/rich-text-editor';
 import SizeSelector from 'packages/components/size-selector';
 import Link from 'next/link';
-import { resolve } from 'path';
-import { error } from 'console';
+import { enhancements } from 'apps/seller-ui/src/utils/AI.enhancements';
+import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
 
+interface UploadedImage {
+  fileId: string;
+  file_url: string;
+}
 
 export default function Page() {
   const { register, control, watch, setValue, handleSubmit, formState:{ errors }, } = useForm();
   const [openImageModal, setOpenImageModal] = useState(false);
   const [isChanged, setIsChanged] = useState(true);
-  const [images, setImages] = useState<(File | null)[]>([null]);
+  const [activeEffect, setActiveEffect] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] = useState('');
+  const [pictureUploadingLoader, setPictureUploadingLoader] = useState(false);
+  const [images, setImages] = useState<(UploadedImage | null)[]>([null]);
   const [loading, setLoading] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const router = useRouter();
 
   const {data, isLoading, isError} = useQuery({
     queryKey: ["categories"],
@@ -56,9 +66,16 @@ export default function Page() {
     return selectedCategory ? subCategoriesData[selectedCategory] || [] : [];
   }, [selectedCategory, subCategoriesData]);  
 
-  const onSubmit = (data:any) => {
-    console.log(data);
-    
+  const onSubmit = async(data:any) => {
+    try {
+      setLoading(true);
+      await axiosInstance.post("/product/api/create-product",  data);
+      router.push("/dashboard/all-products");
+    } catch (error:any) {
+      toast.error(error?.data?.message);
+    } finally {
+      setLoading(false);
+    }
   }
 
   const convertFileToBase64 = (file: File) => {
@@ -73,14 +90,18 @@ export default function Page() {
   const handleImageChange = async(file: File | null, index:number) => {
 
     if (!file) return;
+    setPictureUploadingLoader(true);
 
     try {
       const fileName = await convertFileToBase64(file);
+      const response = await axiosInstance.post("/product/api/upload-product-image", { fileName });
 
-      const response = await axiosInstance.post("/product/api/upload-product-image", fileName);
-
+      const uploadImage:UploadedImage = {
+        fileId: response.data.fileId,
+        file_url: response.data.file_url,
+      }
       const updateImages = [...images];
-      updateImages[index] = response.data.file_url;
+      updateImages[index] = uploadImage;
 
       if(index === images.length - 1 && updateImages.length < 8) {
         updateImages.push(null);
@@ -90,16 +111,22 @@ export default function Page() {
       setValue("images", updateImages);
     } catch (error) {
       console.log(error);
+    } finally {
+      setPictureUploadingLoader(false);
     }
   };
 
-  const handleRemoveImage = (index:number) => {
+  const handleRemoveImage = async(index:number) => {
     try {
       const updatedImages = [...images];
 
       const imageToDelete = updatedImages[index];
-      if(imageToDelete && typeof imageToDelete === "string") {
-        // delete our image
+      if(imageToDelete && typeof imageToDelete === "object") {
+        await axiosInstance.delete("/product/api/delete-product-image", {
+          data: {
+            fileId: imageToDelete.fileId!,
+          }
+        })
       }
 
       updatedImages.splice(index, 1);
@@ -115,6 +142,26 @@ export default function Page() {
       console.log(error);
     }
   }
+
+  const applyTransformation = async (transformation: string) => {
+  if (!selectedImage || processing) return;
+
+  setProcessing(true);
+  setActiveEffect(transformation);
+
+  try {
+    // Remove existing transformation if present
+    const baseUrl = selectedImage.split("?tr=")[0];
+
+    const transformUrl = `${baseUrl}?tr=${transformation}`;
+
+    setSelectedImage(transformUrl);
+  } catch (error) {
+    console.log(error);
+  } finally {
+    setProcessing(false);
+  }
+};
 
   const handleSaveDraft = () => {
 
@@ -137,17 +184,20 @@ export default function Page() {
 
       {/* Content Layout */}
       <div className='py-4 w-full flex gap-6'>
-        {/* Left side - IMage upload section */}
+        {/* Left side - Image upload section */}
         <div className='md:w-[35%]'>
           {images?.length > 0 && (
           <ImagePlaceHolder 
             setOpenImageModal={setOpenImageModal}
             size='765 x 850'
             small={false}
+            images={images}
+            pictureUploadingLoader={pictureUploadingLoader}
             index={0}
             onImageChange={handleImageChange}
+            setSelectedImage={setSelectedImage}
             onRemove={handleRemoveImage}
-          />
+            />
           )}
 
           
@@ -156,8 +206,11 @@ export default function Page() {
             <ImagePlaceHolder 
               setOpenImageModal={setOpenImageModal}
               size='765 x 850'
+              pictureUploadingLoader={pictureUploadingLoader}
+              images={images}
               key={index}
               small
+              setSelectedImage={setSelectedImage}
               index={index + 1}
               onImageChange={handleImageChange}
               onRemove={handleRemoveImage}
@@ -187,7 +240,7 @@ export default function Page() {
                 cols={10}
                 label='Short Description * (Max 150 words)'
                 placeholder='Enter product description for quick view'
-                {...register("description", {
+                {...register("short_description", {
                   required: "Description is required",
                   validate: (value) => {
                     const wordCount = value.trim().split(/\s+/).length;
@@ -512,8 +565,51 @@ export default function Page() {
                 </div>
             </div>
           </div>
+        </div>
       </div>
-      </div>
+
+      {openImageModal && (
+        <div className='fixed top-0 left-0 w-full h-full flex items-center justify-center bg-black bg-opacity-60 z-50'>
+          <div className='bg-gray-800 p-6 rounded-lg w-[450px] text-white'>
+            <div className='flex justify-between items-center pb-3 mb-4'>
+              <h2 className='text-lg font-semibold'>Enhance Product Image</h2>
+              <X 
+                size={20}
+                className='cursor-pointer'
+                onClick={() => setOpenImageModal(!openImageModal)}
+              />
+            </div>
+
+            <div className="relative aspect-square w-full">
+              <img
+                src={selectedImage}
+                alt="product-image"
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            </div>
+            {selectedImage && (
+              <div className='mt-4 space-y-2'>
+                <h3 className='text-white text-sm font-semibold'>
+                  AI Enhancements
+                </h3>
+                <div className='grid grid-cols-2 gap-3 max-h-[250px] overflow-y-auto'>
+                  {enhancements?.map(({ label, effect }) => (
+                    <button
+                      key={effect}
+                      className={`p-2 rounded-md flex items-center gap-2 ${activeEffect === effect ? "bg-green-600 text-white" : "bg-gray-700 hover:bg-gray-600"}`}
+                      onClick={() => applyTransformation(effect)}
+                      disabled={processing}
+                    >
+                      <Wand size={18}/>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       <div className='mt-6 flex justify-end gap-3'>
                   {isChanged && (
                     <button
@@ -529,7 +625,7 @@ export default function Page() {
                     className='px-4 py-2 bg-blue-600 text-white rounded-md'
                     disabled={loading}
                   >
-                    {loading ? "Creating..." : "Create"}4
+                    {loading ? "Creating..." : "Create"}
                   </button>
       </div>
     </form>
