@@ -10,6 +10,7 @@ import {
     getDiscountCodes, 
     getFlutterwaveAccount, 
     getShopProducts, 
+    searchProducts,
     restoreProduct, 
     uploadProductImage 
 } from "../controllers/product.controller";
@@ -29,5 +30,6 @@ router.delete("/delete-product/:productId", isAuthenticated, deleteProduct);
 router.put("/restore-product/:productId", isAuthenticated, restoreProduct);
 router.put("/get-stripe-account", isAuthenticated, getFlutterwaveAccount);
 router.get("/get-all-products", getAllProducts);
+router.get("/search-products", searchProducts);
 
 export default router;

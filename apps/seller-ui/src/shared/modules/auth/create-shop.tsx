@@ -1,11 +1,14 @@
 import { useMutation } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { shopCategories } from 'apps/seller-ui/src/utils/categories';
 import axios from 'axios';
-import React from 'react'
+import React, { useState } from 'react'
 import { useForm } from 'react-hook-form';
 
 export default function CreateShop({ sellerId, setActiveStep, } : { sellerId: string; setActiveStep: (step: number) => void }) {
+    const queryClient = useQueryClient();
     const { register, handleSubmit, formState: { errors }} = useForm();
+    const [avatar, setAvatar] = useState<string | null>(null);
 
     const shopCreateMutation = useMutation({
         mutationFn: async(data: FormData) => {
@@ -13,16 +16,34 @@ export default function CreateShop({ sellerId, setActiveStep, } : { sellerId: st
             return response.data;
         },
         onSuccess: () => {
+            // Ensure the sidebar re-fetches the latest seller (and shop avatar)
+            queryClient.invalidateQueries({ queryKey: ["seller"] });
             setActiveStep(3)
         }
     });
 
     const onSubmit = async(data: any) => {
-        const shopData = { ...data, sellerId };
+        const shopData = { ...data, sellerId, avatar };
         shopCreateMutation.mutate(shopData);
     };
 
     const countWords = (text: string) => text.trim().split(/\s+/).length;
+
+    const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) {
+            setAvatar(null);
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            if (typeof reader.result === "string") {
+                setAvatar(reader.result);
+            }
+        };
+        reader.readAsDataURL(file);
+    };
 
   return (
     <div>
@@ -116,6 +137,17 @@ export default function CreateShop({ sellerId, setActiveStep, } : { sellerId: st
             {errors.category && (
                 <p className='text-red-500 text-sm'>{String(errors.category.message)}</p>
             )}
+
+            <label className='block text-gray-700 mb-1'>Shop Logo</label>
+            <input
+                type='file'
+                accept='image/*'
+                className='w-full p-2 border border-gray-300 outline-0 rounded-[4px] mb-1'
+                onChange={handleAvatarChange}
+            />
+            <p className='text-xs text-gray-500 mb-2'>
+                Optional. Upload a logo to display with your shop on product pages.
+            </p>
 
             <button
                 type='submit'

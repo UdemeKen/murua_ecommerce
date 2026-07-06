@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import { checkOtpRestrictions, handleForgotPassword, sendOtp, trackOtpRequests, validateRegistrationData, verifyForgotPasswordOtp, verifyOtp } from "../utils/auth.helper";
 import prisma from "@packages/libs/prisma";
 import { AuthError, ValidationError } from "@packages/error-handler";
+import { imagekit } from "@packages/libs/imagekit";
 import bcrypt from "bcryptjs";
 import jwt, { JsonWebTokenError } from "jsonwebtoken";
 import { setCookie } from "../utils/cookies/setCookie";
@@ -234,7 +235,6 @@ export const resetUserPassword = async(req:Request, res:Response, next:NextFunct
     }
 }
 
-
 // Register a new seller
 export const registerSeller = async(req:Request, res:Response, next:NextFunction) => {
     try {
@@ -305,7 +305,7 @@ export const verifySeller = async(req:Request, res:Response, next:NextFunction) 
 // Create a new shop
 export const createShop = async(req:Request, res:Response, next:NextFunction) => {
     try {
-        const { name, bio, address, opening_hours, website, category, sellerId } = req.body;
+        const { name, bio, address, opening_hours, website, category, sellerId, avatar } = req.body;
 
         if(!name || !bio || !address || !opening_hours || !category || !sellerId) {
             return next(new ValidationError("All fields are required!"));
@@ -328,9 +328,30 @@ export const createShop = async(req:Request, res:Response, next:NextFunction) =>
             data: shopData,
         });
 
+        if (avatar) {
+            const uploadedAvatar = await imagekit.upload({
+                file: avatar,
+                fileName: `shop-${shop.id}-${Date.now()}.jpg`,
+                folder: "/shops",
+            });
+
+            await prisma.images.create({
+                data: {
+                    file_id: uploadedAvatar.fileId,
+                    url: uploadedAvatar.url,
+                    shopId: shop.id,
+                },
+            });
+        }
+
+        const shopWithAvatar = await prisma.shops.findUnique({
+            where: { id: shop.id },
+            include: { avatar: true },
+        });
+
         res.status(201).json({
             success: true,
-            shop,
+            shop: shopWithAvatar,
         });
     } catch (error) {
         next(error);

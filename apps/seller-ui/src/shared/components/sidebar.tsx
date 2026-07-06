@@ -7,12 +7,12 @@ import useSeller from '../../hooks/useSeller';
 import Box from './box';
 import Sidebar from './sidebar.styles';
 import Link from 'next/link';
-import Logo from '../../assets/svgs/logo';
 import SidebarItem from './sidebar.item';
 import Home from '../../assets/icons/home';
 import SidebarMenu from './sidebar.menu';
-import { BellPlus, BellRing, CalendarPlus, Headset, ListOrdered, LogOut, Mail, PackageSearch, Settings, SquarePlus, TicketPercent } from 'lucide-react';
+import { BellPlus, BellRing, CalendarPlus, ListOrdered, LogOut, Mail, PackageSearch, Settings, SquarePlus, TicketPercent } from 'lucide-react';
 import Payment from '../../assets/icons/payment';
+import Image from 'next/image';
 
 export default function SidebarWrapper() {
   const { activeSidebar, setActiveSidebar } = useSideBar();
@@ -44,7 +44,13 @@ export default function SidebarWrapper() {
       <Sidebar.Header>
         <Box>
           <Link href={"/"} className='flex justify-center text-center'>
-            <Logo />
+            <Image
+              src={seller?.shop?.avatar?.[0]?.url || "https://ik.imagekit.io/udemekendrickmurua/default-image.jpg?updatedAt=1771849867479"}
+              alt="Shop Logo"
+              width={44}
+              height={44}
+              className='rounded-full object-cover'
+            />
             <Box>
               <h3 className='text-lg font-medium text-[#ecedee]'>{seller?.shop?.name}</h3>
               <h5 className='font-thin text-xs text-[#ecedeecf] whitespace-nowrap overflow-hidden text-ellipsis max-w-[170px]'>

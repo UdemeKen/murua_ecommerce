@@ -48,8 +48,12 @@ export default function page() {
 
          {!isLoading && !isError && (
           <div className='m-auto grid grid-cols-1 sm:grid-cols-3'>
-            {products?.map((product:any) => (
-              <ProductCard key={product.id} product={product}/>
+            {products?.map((product:any, index: number) => (
+              <ProductCard 
+                key={product.id} 
+                product={product}
+                isAboveFold={index === 0}
+              />
             ))}
           </div>
          )}

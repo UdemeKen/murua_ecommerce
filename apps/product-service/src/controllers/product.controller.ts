@@ -10,6 +10,10 @@ export const getCategories = async(req:Request, res:Response, next:NextFunction)
     try {
         const config = await prisma.site_configs.findFirst();
 
+        if (!config) {
+            return next(new NotFoundError("Site config not found"));
+        }
+
         return res.status(200).json({
             categories: config.categories,
             subCategories: config.subCategories,
@@ -360,15 +364,37 @@ export const getAllProducts = async(req:Request, res:Response, next:NextFunction
         const skip = (page - 1) * limit;
         const type = req.query.type;
 
-        const baseFilter = {
-            OR:[{
-                starting_date:null,
-            }, 
+        const now = new Date();
+
+        const baseFilter: Prisma.productsWhereInput = {
+        isDeleted: false,
+        AND: [
             {
-                ending_date:null,
-            }, 
-        ]
+            OR: [
+                { starting_date: null },
+                { starting_date: { isSet: false } },
+                { starting_date: { lte: now } },
+            ],
+            },
+            {
+            OR: [
+                { ending_date: null },
+                { ending_date: { isSet: false } },
+                { ending_date: { gte: now } },
+            ],
+            },
+        ],
         };
+
+        // const baseFilter = {
+        //     OR:[{
+        //         starting_date:null,
+        //     }, 
+        //     {
+        //         ending_date:null,
+        //     }, 
+        // ]
+        // };
 
         const orderBy: Prisma.productsOrderByWithRelationInput = type === "latest"
             ? { createdAt: "desc" as Prisma.SortOrder }
@@ -380,7 +406,11 @@ export const getAllProducts = async(req:Request, res:Response, next:NextFunction
                     take: limit,
                     include: {
                         images: true,
-                        shop: true,
+                        shop: {
+                            include: {
+                                avatar: true,
+                            },
+                        },
                     },
                     where: baseFilter,
                     orderBy: {
@@ -408,3 +438,56 @@ export const getAllProducts = async(req:Request, res:Response, next:NextFunction
         next(error);
     }
 }
+
+// search products
+export const searchProducts = async(req: Request, res: Response, next: NextFunction) => {
+    try {
+        const q = (req.query.q as string | undefined)?.trim() || "";
+
+        if (!q) {
+            return res.status(200).json({ products: [] });
+        }
+
+        const now = new Date();
+
+        const products = await prisma.products.findMany({
+            where: {
+                isDeleted: false,
+                AND: [
+                    {
+                        OR: [
+                            { starting_date: null },
+                            { starting_date: { isSet: false } },
+                            { starting_date: { lte: now } },
+                        ],
+                    },
+                    {
+                        OR: [
+                            { ending_date: null },
+                            { ending_date: { isSet: false } },
+                            { ending_date: { gte: now } },
+                        ],
+                    },
+                ],
+                OR: [
+                    { title: { contains: q, mode: "insensitive" } },
+                    { slug: { contains: q, mode: "insensitive" } },
+                    { category: { contains: q, mode: "insensitive" } },
+                    { subCategory: { contains: q, mode: "insensitive" } },
+                    { tags: { has: q.toLowerCase() } },
+                ],
+            },
+            select: {
+                id: true,
+                title: true,
+                slug: true,
+            },
+            take: 20,
+            orderBy: { createdAt: "desc" },
+        });
+
+        return res.status(200).json({ products });
+    } catch (error) {
+        return next(error);
+    }
+};

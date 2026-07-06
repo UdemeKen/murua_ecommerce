@@ -21,7 +21,7 @@ const { fields, append, remove } = useFieldArray({
                         name={`custom_specifications.${index}.name`}
                         control={control}
                         rules={{required: "Specification name is required"}}
-                        render={(field) => (
+                        render={({ field }) => (
                             <Input 
                                 label='Specification Name'
                                 placeholder='e.g., Battery life, Weight, Material'

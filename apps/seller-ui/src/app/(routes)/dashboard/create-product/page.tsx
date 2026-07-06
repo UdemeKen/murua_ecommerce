@@ -10,12 +10,13 @@ import CustomSpecifications from 'packages/components/custom-specifications';
 import CustomProperties from 'packages/components/custom-properties';
 import { useQuery } from '@tanstack/react-query';
 import axiosInstance from 'apps/seller-ui/src/utils/axiosInstance';
-import RichTextEditor from 'packages/components/rich-text-editor';
 import SizeSelector from 'packages/components/size-selector';
 import Link from 'next/link';
 import { enhancements } from 'apps/seller-ui/src/utils/AI.enhancements';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
+import dynamic from 'next/dynamic';
+import type { FieldErrors } from 'react-hook-form';
 
 interface UploadedImage {
   fileId: string;
@@ -25,14 +26,39 @@ interface UploadedImage {
 export default function Page() {
   const { register, control, watch, setValue, handleSubmit, formState:{ errors }, } = useForm();
   const [openImageModal, setOpenImageModal] = useState(false);
-  const [isChanged, setIsChanged] = useState(true);
+  const [isChanged] = useState(true);
   const [activeEffect, setActiveEffect] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState('');
   const [pictureUploadingLoader, setPictureUploadingLoader] = useState(false);
   const [images, setImages] = useState<(UploadedImage | null)[]>([null]);
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const router = useRouter();
+  const RichTextEditor = dynamic(() => import('packages/components/rich-text-editor'), {
+    ssr: false,
+  });
+
+  // RichTextEditor returns HTML. For validation we must count visible words,
+  // so we strip tags + decode basic entities like &nbsp; into spaces.
+  const richTextToPlainText = (html: unknown) => {
+    if (typeof html !== "string") return "";
+
+    return html
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      // remove tags
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ")
+      .replace(/<\/?[^>]+(>|$)/g, " ")
+      // collapse whitespace
+      .replace(/\s+/g, " ")
+      .trim();
+  };
 
   const {data, isLoading, isError} = useQuery({
     queryKey: ["categories"],
@@ -68,15 +94,24 @@ export default function Page() {
 
   const onSubmit = async(data:any) => {
     try {
+      setFormError(null);
       setLoading(true);
       await axiosInstance.post("/product/api/create-product",  data);
+      toast.success("Product created successfully");
       router.push("/dashboard/all-products");
     } catch (error:any) {
-      toast.error(error?.data?.message);
+      toast.error(error?.response?.data?.message || "Failed to create product");
     } finally {
       setLoading(false);
     }
   }
+
+  const onInvalid = (formErrors: FieldErrors) => {
+    const firstError = Object.values(formErrors)[0] as { message?: string } | undefined;
+    const message = firstError?.message || "Please fix form errors before submitting";
+    setFormError(message);
+    toast.error(message);
+  };
 
   const convertFileToBase64 = (file: File) => {
     return new Promise((resolve, reject) => {
@@ -170,12 +205,17 @@ export default function Page() {
   return (
     <form 
       className='w-full mx-auto p-8 shadow-md rounded-lg text-white'
-      onSubmit={handleSubmit(onSubmit)}
+      onSubmit={handleSubmit(onSubmit, onInvalid)}
     >
       {/* Heading & Breadcrumbs */}
       <h2 className='text-2xl py-2 font-semibold font-Poppins text-white'>
         Create Product
       </h2>
+      {formError && (
+        <div className='mb-3 rounded-md border border-red-500/50 bg-red-950/40 px-3 py-2 text-sm text-red-200'>
+          {formError}
+        </div>
+      )}
       <div className='flex items-center'>
         <Link href={"/dashboard"} className='text-[#80Deea] cursor-pointer'>Dashboard</Link>
         <ChevronRight size={20} className='opacity-[.8]'/>
@@ -419,8 +459,8 @@ export default function Page() {
                     )}
                   />
 
-                  {errors.subcategory && (
-                    <p className='text-red-500 text-sm mt-1'>{errors.subcategory.message as string}</p>
+                  {errors.subCategory && (
+                    <p className='text-red-500 text-sm mt-1'>{errors.subCategory.message as string}</p>
                   )}
                 </div>
 
@@ -434,9 +474,12 @@ export default function Page() {
                     rules={{
                       required: "Detailed description is required!",
                       validate: (value) => {
-                        const wordCount = value?.split(/\s+/).filter((word: string) => word).length;
+                        const plainText = richTextToPlainText(value);
+                        const wordCount = plainText
+                          ? plainText.split(/\s+/).filter((word: string) => word).length
+                          : 0;
                         return (
-                          wordCount >= 100 || "Description must be atleast 100 words!"
+                          wordCount >= 20 || "Description must be at least 20 words!"
                         );
                       },
                     }}

@@ -33,8 +33,31 @@ const isAuthenticated = async(req:any, res:Response, next:NextFunction) => {
         } else if (decoded.role === "seller") {
             account = await prisma.sellers.findUnique({
                 where: { id: decoded.id },
-                include: { shop: true }
+                include: {
+                    shop: {
+                        include: {
+                            avatar: true,
+                        },
+                    },
+                }
             });
+
+            // Always fetch avatar by shopId so the sidebar does not depend on Prisma
+            // relation population behavior.
+            if (account?.shop?.id) {
+                const avatarImages = await prisma.images.findMany({
+                    where: { shopId: account.shop.id },
+                    select: { id: true, file_id: true, url: true, shopId: true },
+                });
+
+                account = {
+                    ...account,
+                    shop: {
+                        ...account.shop,
+                        avatar: avatarImages,
+                    },
+                };
+            }
             req.seller = account;
         }
 
