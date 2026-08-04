@@ -11,7 +11,7 @@ const getStoredLocation = () => {
 
     const parsedData = JSON.parse(storedData);
     const expiryTime = LOCATION_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
-    const isExpired = Date.now() - parsedData.timestamp > expiryTime;
+    const isExpired = Date.now() - (parsedData.timestamp ?? parsedData.timeStamp) > expiryTime;
 
     return isExpired ? null : parsedData;
 };
@@ -26,7 +26,7 @@ const useLocationTracking = () => {
             const newLocation = {
                 country: data?.country,
                 city: data.city,
-                timeStamp: Date.now(),
+                timestamp: Date.now(),
             };
 
             localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(newLocation));

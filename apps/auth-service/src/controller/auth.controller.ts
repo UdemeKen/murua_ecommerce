@@ -4,7 +4,7 @@ import prisma from "@packages/libs/prisma";
 import { AuthError, ValidationError } from "@packages/error-handler";
 import { imagekit } from "@packages/libs/imagekit";
 import bcrypt from "bcryptjs";
-import jwt, { JsonWebTokenError } from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 import { setCookie } from "../utils/cookies/setCookie";
 const Flutterwave = require("flutterwave-node-v3");
 
@@ -93,8 +93,8 @@ export const loginUser = async(req:Request, res:Response, next:NextFunction) => 
             );
         }
 
-        res.clearCookie("seller-access_token");
-        res.clearCookie("seller-refresh_token");
+        res.clearCookie("seller-access-token");
+        res.clearCookie("seller-refresh-token");
 
         // Generate access and refresh token
         const accessToken = jwt.sign(
@@ -132,24 +132,24 @@ export const refreshToken = async(req: any, res: Response, next: NextFunction) =
         const refreshToken = req.cookies["refresh_token"] || req.cookies["seller-refresh-token"] || req.headers.authorization?.split(" ")[1];
 
         if (!refreshToken) {
-            return new ValidationError("Unauthorized! No refresh token.")
+            return next(new ValidationError("Unauthorized! No refresh token."));
         }
 
         const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET as string) as { id: string; role: string };
 
         if (!decoded || !decoded.id || !decoded.role) {
-            return new JsonWebTokenError("Forbidden! Invalid refresh token.");
+            return next(new AuthError("Forbidden! Invalid refresh token."));
         }
 
         let account;
         if (decoded.role === "user"){
-            const account = await prisma.users.findUnique({ where: { id: decoded.id }});
+            account = await prisma.users.findUnique({ where: { id: decoded.id }});
         } else if(decoded.role === "seller") {
-            const account = await prisma.sellers.findUnique({ where: { id: decoded.id }, include: { shop: true }});
+            account = await prisma.sellers.findUnique({ where: { id: decoded.id }, include: { shop: true }});
         }
 
         if (!account) {
-            return new AuthError("Forbidden! User/Seller not found");
+            return next(new AuthError("Forbidden! User/Seller not found"));
         }
 
         const newAccessToken = jwt.sign({ id: decoded.id, role: decoded.role }, process.env.ACCESS_TOKEN_SECRET as string, { expiresIn: "15m" });

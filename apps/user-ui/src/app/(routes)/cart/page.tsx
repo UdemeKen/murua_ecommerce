@@ -4,6 +4,7 @@ import useDeviceTracking from 'apps/user-ui/src/hooks/useDeviceTracking';
 import useLocationTracking from 'apps/user-ui/src/hooks/useLocationTracking';
 import useUser from 'apps/user-ui/src/hooks/useUser';
 import { useStore } from 'apps/user-ui/src/store';
+import { Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -22,6 +23,7 @@ export default function CartPage() {
     const removeFromCart = useStore((state: any) => state.removeFromCart);
     const [ loading, setLoading ] = useState(false);
     const [ couponCode, setCouponCode ] = useState("")
+    const [ selectedAddressId, setSelectedAddressId ] = useState("");
 
     const decreaseQuantity = (id: string) => {
         useStore.setState((state: any) => ({
@@ -123,19 +125,19 @@ export default function CartPage() {
                                             {item?.id === discountedProductId ? (
                                                 <div className='flex flex-col items-center'>
                                                     <span className='line-through text-gray-500 text-sm'>
-                                                        ₦{item.sale_price.toFixed(2)}
+                                                        {item.sale_price.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2, style: "currency", currency: "NGN" })}
                                                     </span>{" "}
                                                     <span className='text-green-600 font-semibold'>
-                                                        ₦{(
+                                                        {(
                                                             (item.sale_price * (100 - discountPercent)) / 100
-                                                        ).toFixed(2)}
+                                                        ).toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2, style: "currency", currency: "NGN" })}
                                                     </span>
                                                     <span className='text-xs text-green-700 bg-white'>
                                                         Discount Applied
                                                     </span>
                                                 </div>
                                             ) : (
-                                                <span>₦{item.sale_price.toFixed(2)}</span>
+                                                <span>{item.sale_price.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2, style: "currency", currency: "NGN" })}</span>
                                             )}
                                     </td>
                                     <td>
@@ -148,7 +150,8 @@ export default function CartPage() {
                                     <td className='text-center'>
                                             <button 
                                                 onClick={() => removeItem(item?.id)}
-                                                className='text-[#818487] cursor-pointer hover:text-[#ff1826] transition duration-200'>
+                                                className='text-red-500 cursor-pointer duration-200 font-medium text-sm py-1 px-2 rounded-md bg-white border border-red-500 hover:bg-red-500 hover:text-white transition-all'
+                                                >
                                                 x Remove
                                             </button>
                                     </td>
@@ -161,12 +164,12 @@ export default function CartPage() {
                             {discountAmount > 0 && (
                                 <div className='flex justify-between items-center text-[#010f1c] text-base font-medium pb-1'>
                                     <span className='font-jost'>Discount ({discountPercent}%)</span>
-                                    <span className='text-green-600'> - ₦{discountAmount.toFixed(2)}</span>
+                                    <span className='text-green-600'> - {(discountAmount).toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2, style: "currency", currency: "NGN" })}</span>
                                 </div>
                             )}
                     <div className='flex justify-between items-center text-[#010f1c] text-[20px] font-[550] pb-3'>
                             <span className='font-jost'>Subtotal</span>
-                            <span>₦{(subtotal - discountAmount).toFixed(2)}</span>
+                            <span>{(subtotal - discountAmount).toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2, style: "currency", currency: "NGN" })}</span>
                     </div>
                     <hr className='my-4 text-slate-200' />
 
@@ -175,10 +178,72 @@ export default function CartPage() {
                                 Have a Coupon?
                             </h4>
                             <div className='flex'>
-                                <input type='text' value={couponCode}
-                                    onChange={(e: any) => setCouponCode(e.target.value)} 
+                                <input 
+                                    type='text' 
+                                    value={couponCode}
+                                    onChange={(e: any) => setCouponCode(e.target.value)}
+                                    placeholder='Enter coupon code'
+                                    className='w-full p-2 border border-gray-200 rounded-l-md focus:outline-none focus:border-green-500'
                                 />
+                                <button
+                                    className='bg-green-500 cursor-pointer text-white px-4 rounded-r-md hover:bg-green-600 transition-all'
+                                    // onClick={() => couponCodeApplyHandler()}
+                                >
+                                    Apply
+                                </button>
+                                {/* {error && (
+                                    <p className='text-sm pt-2 text-red-500'>{error}</p>
+                                )} */}
                             </div>
+                            <hr className='my-4 text-slate-200' />
+
+                            <div className='mb-4'>
+                                    <h4 className='mb-[7px] font-medium text-[15px]'>
+                                        Select Shipping Address
+                                    </h4>
+                                    <select
+                                        className='w-full p-2 border border-gray-200 rounded-md focus:outline-none focus:border-green-500'
+                                        value={selectedAddressId}
+                                        onChange={(e: any) => setSelectedAddressId(e.target.value)}
+                                    >
+                                        <option
+                                            value="123"
+                                        >
+                                            Home - Lagos - Nigeria
+                                        </option>
+                                    </select>
+                            </div>
+                            <hr className='my-4 text-slate-200' />
+
+                            <div className='mb-4'>
+                                    <h4 className='mb-[7px] font-[500] text-[15px]'>
+                                        Select Payment Method
+                                    </h4>
+                                    <select className='w-full p-2 border border-gray-200 rounded-md focus:outline-none focus:border-green-500'>
+                                        <option value="credit-card">
+                                            Online Payment
+                                        </option>
+                                        <option value="cash-on-delivery">
+                                            Cash on Delivery
+                                        </option>
+                                    </select>
+                            </div>
+                            <hr className='my-4 text-slate-200' />
+
+                            <div
+                                className='flex justify-between items-center text-[#010f1c] text-[20px] font-[550] pb-3'
+                            >
+                                <span className='font-jost'>Total</span> 
+                                <span>{(subtotal - discountAmount).toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2, style: "currency", currency: "NGN" })}</span>
+                            </div>
+
+                            <button
+                                disabled={loading}
+                                className='w-full flex items-center justify-center gap-2 cursor-pointer mt-4 py-3 bg-[#010f1c] text-white hover:bg-[#2f8c40] transition-all rounded-lg'
+                            >
+                                {loading && <Loader2 className='w-4 h-4 animate-spin' />}
+                                {loading ? "Redirecting..." : "Proceed to Checkout"}
+                            </button>
                     </div>
                     </div>
                 </div>

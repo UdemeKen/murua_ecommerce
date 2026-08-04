@@ -101,6 +101,27 @@ enum productStatus {
   Draft
 }
 
+model userAnalytics {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @unique @db.ObjectId
+  country     String?
+  city        String?
+  device      String?
+  lastVisited DateTime
+  actions     Json     @default("[]")
+}
+
+model productAnalytics {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  productId    String   @unique @db.ObjectId
+  shopId       String?  @db.ObjectId
+  views        Int      @default(0)
+  cartAdds     Int      @default(0)
+  wishListAdds Int      @default(0)
+  purchases    Int      @default(0)
+  lastViewedAt DateTime
+}
+
 model products {
   id                    String        @id @default(auto()) @map("_id") @db.ObjectId
   title                 String
