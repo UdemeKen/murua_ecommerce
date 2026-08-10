@@ -12,7 +12,8 @@ import {
     getShopProducts, 
     searchProducts,
     restoreProduct, 
-    uploadProductImage 
+    uploadProductImage, 
+    getProductDetails
 } from "../controllers/product.controller";
 import isAuthenticated from "@packages/middleware/isAuthenticated";
 
@@ -31,5 +32,6 @@ router.put("/restore-product/:productId", isAuthenticated, restoreProduct);
 router.put("/get-stripe-account", isAuthenticated, getFlutterwaveAccount);
 router.get("/get-all-products", getAllProducts);
 router.get("/search-products", searchProducts);
+router.get("/get-product/:slug", getProductDetails);
 
 export default router;
